@@ -1,0 +1,21 @@
+services:
+  anipy-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: anipy-web:latest
+    container_name: anipy-web
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - ${DOWNLOAD_DIR}:/downloads
+      - anipy-data:/data
+    environment:
+      - ANIPY_USER=${ANIPY_USER}
+      - ANIPY_PASS=${ANIPY_PASS}
+      - DOWNLOAD_DIR=/downloads/anime
+
+volumes:
+  anipy-data:
+    driver: local

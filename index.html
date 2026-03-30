@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>anipy-web</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne+Mono&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --border-bright: #2e2e4e;
+    --accent: #7c6aff;
+    --accent-dim: #3d3480;
+    --accent-glow: rgba(124,106,255,0.15);
+    --text: #c8c8e0;
+    --text-dim: #5a5a7a;
+    --text-bright: #eeeeff;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #facc15;
+    --mono: 'Syne Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr;
+  }
+
+  /* Noise overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  header {
+    position: relative;
+    z-index: 1;
+    padding: 1.25rem 2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: var(--surface);
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+
+  .logo span { color: var(--text-dim); }
+
+  nav {
+    margin-left: auto;
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .tab {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    padding: 0.4rem 0.9rem;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    border-radius: 2px;
+  }
+
+  .tab:hover { color: var(--text); border-color: var(--border-bright); }
+  .tab.active {
+    color: var(--accent);
+    border-color: var(--accent-dim);
+    background: var(--accent-glow);
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* Panels */
+  .panel {
+    padding: 2rem;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    max-height: calc(100vh - 61px);
+  }
+  .panel:last-child { border-right: none; }
+
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .panel-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Search */
+  .search-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border-bright);
+    color: var(--text-bright);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    padding: 0.6rem 0.9rem;
+    outline: none;
+    border-radius: 2px;
+    transition: border-color 0.15s;
+  }
+
+  input[type="text"]:focus { border-color: var(--accent); }
+  input[type="text"]::placeholder { color: var(--text-dim); }
+
+  button.primary {
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    padding: 0.6rem 1.1rem;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  button.primary:hover { background: var(--accent); color: var(--bg); }
+  button.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Anime result cards */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.12s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .result-card:hover { border-color: var(--accent-dim); background: rgba(124,106,255,0.05); }
+  .result-card.selected { border-color: var(--accent); background: var(--accent-glow); }
+
+  .result-name {
+    font-size: 0.9rem;
+    color: var(--text-bright);
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .lang-badges {
+    display: flex;
+    gap: 0.35rem;
+    flex-shrink: 0;
+  }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    padding: 0.15rem 0.45rem;
+    border-radius: 1px;
+    text-transform: uppercase;
+  }
+
+  .badge.sub { border: 1px solid #3b82f6; color: #3b82f6; }
+  .badge.dub { border: 1px solid #f59e0b; color: #f59e0b; }
+
+  /* Episode picker */
+  .ep-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .lang-toggle {
+    display: flex;
+    border: 1px solid var(--border-bright);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .lang-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    padding: 0.35rem 0.7rem;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    transition: all 0.12s;
+  }
+
+  .lang-btn.active { background: var(--accent-dim); color: var(--accent); }
+
+  .ep-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+  }
+
+  .ep-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    padding: 0.4rem 0;
+    cursor: pointer;
+    border-radius: 1px;
+    transition: all 0.1s;
+    text-align: center;
+  }
+
+  .ep-btn:hover { border-color: var(--accent-dim); color: var(--text); }
+  .ep-btn.selected { border-color: var(--accent); background: var(--accent-glow); color: var(--accent); }
+
+  .ep-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .ep-count {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+
+  /* Queue / Jobs */
+  .job-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.5rem;
+    animation: slideIn 0.2s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .job-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .job-name {
+    font-size: 0.85rem;
+    color: var(--text-bright);
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .job-meta {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-top: 0.15rem;
+  }
+
+  .status-pill {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 1px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .status-pill.queued   { border: 1px solid var(--text-dim); color: var(--text-dim); }
+  .status-pill.downloading { border: 1px solid var(--accent); color: var(--accent); }
+  .status-pill.done     { border: 1px solid var(--green); color: var(--green); }
+  .status-pill.error    { border: 1px solid var(--red); color: var(--red); }
+
+  .progress-track {
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 1px;
+    transition: width 0.3s ease;
+  }
+
+  .progress-bar.done { background: var(--green); }
+  .progress-bar.error { background: var(--red); }
+
+  .job-error {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--red);
+    margin-top: 0.5rem;
+    line-height: 1.4;
+    word-break: break-all;
+  }
+
+  /* Empty states */
+  .empty {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 3rem 1rem;
+    border: 1px dashed var(--border);
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+  }
+
+  /* Spinner */
+  .spinner {
+    display: inline-block;
+    width: 0.8rem;
+    height: 0.8rem;
+    border: 2px solid var(--border-bright);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    padding: 0.6rem 1rem;
+    border-radius: 2px;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+
+  #toast.show { opacity: 1; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+  /* Select all row */
+  .select-row {
+    display: flex;
+    gap: 0.35rem;
+    margin-bottom: 0.5rem;
+    align-items: center;
+  }
+
+  .ghost-btn {
+    background: none;
+    border: 1px solid var(--border-bright);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    padding: 0.25rem 0.6rem;
+    cursor: pointer;
+    border-radius: 1px;
+    letter-spacing: 0.06em;
+    transition: all 0.12s;
+  }
+
+  .ghost-btn:hover { border-color: var(--accent-dim); color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ani<span>//</span>web</div>
+  <nav>
+    <button class="tab active" onclick="showTab('search')">Search</button>
+    <button class="tab" onclick="showTab('queue')">Queue</button>
+  </nav>
+</header>
+
+<main>
+  <!-- LEFT: Search / Results -->
+  <div class="panel" id="panel-left">
+    <div class="panel-title">find anime</div>
+
+    <div class="search-row">
+      <input type="text" id="search-input" placeholder="one piece, attack on titan..." />
+      <button class="primary" id="search-btn" onclick="doSearch()">Search</button>
+    </div>
+
+    <div id="results-area">
+      <div class="empty">search to get started</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Episode picker / Queue -->
+  <div class="panel" id="panel-right">
+
+    <!-- Episode picker (shown when anime selected) -->
+    <div id="ep-section" style="display:none">
+      <div class="panel-title" id="ep-title">episodes</div>
+
+      <div class="ep-controls">
+        <div class="lang-toggle">
+          <button class="lang-btn active" id="lang-sub" onclick="setLang('sub')">SUB</button>
+          <button class="lang-btn" id="lang-dub" onclick="setLang('dub')">DUB</button>
+        </div>
+        <span id="ep-loading" style="display:none"><span class="spinner"></span></span>
+      </div>
+
+      <div class="select-row">
+        <button class="ghost-btn" onclick="selectAll()">All</button>
+        <button class="ghost-btn" onclick="selectNone()">None</button>
+        <button class="ghost-btn" onclick="selectRange()">Range…</button>
+      </div>
+
+      <div class="ep-grid" id="ep-grid"></div>
+
+      <div class="ep-actions">
+        <button class="primary" id="queue-btn" onclick="queueSelected()" disabled>
+          Queue download
+        </button>
+        <span class="ep-count" id="ep-count"></span>
+      </div>
+    </div>
+
+    <!-- Queue view -->
+    <div id="queue-section" style="display:none">
+      <div class="panel-title">download queue</div>
+      <div id="jobs-area">
+        <div class="empty">no jobs yet</div>
+      </div>
+    </div>
+
+    <!-- Default placeholder -->
+    <div id="placeholder-section">
+      <div class="empty">select an anime →</div>
+    </div>
+
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let currentTab = 'search';
+let selectedAnime = null;   // { id, name, languages }
+let currentLang = 'sub';
+let allEpisodes = [];       // [{ number }]
+let selectedEps = new Set();
+let jobStreams = {};         // job_id -> EventSource
+
+// ─── Tab switching ────────────────────────────────────────────────────────────
+function showTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+
+  if (tab === 'search') {
+    document.getElementById('panel-left').style.display = '';
+    document.getElementById('queue-section').style.display = 'none';
+    if (selectedAnime) {
+      document.getElementById('ep-section').style.display = '';
+      document.getElementById('placeholder-section').style.display = 'none';
+    } else {
+      document.getElementById('ep-section').style.display = 'none';
+      document.getElementById('placeholder-section').style.display = '';
+    }
+  } else {
+    document.getElementById('panel-left').style.display = 'none';
+    document.getElementById('ep-section').style.display = 'none';
+    document.getElementById('placeholder-section').style.display = 'none';
+    document.getElementById('queue-section').style.display = '';
+    loadJobs();
+  }
+}
+
+// ─── Search ───────────────────────────────────────────────────────────────────
+document.getElementById('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+
+async function doSearch() {
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+
+  const btn = document.getElementById('search-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  const area = document.getElementById('results-area');
+  area.innerHTML = '';
+
+  try {
+    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+    if (!res.ok) throw new Error(await res.text());
+    const results = await res.json();
+
+    if (!results.length) {
+      area.innerHTML = '<div class="empty">no results found</div>';
+      return;
+    }
+
+    results.forEach(anime => {
+      const card = document.createElement('div');
+      card.className = 'result-card';
+      card.onclick = () => selectAnime(anime, card);
+
+      const badges = anime.languages.map(l =>
+        `<span class="badge ${l}">${l}</span>`
+      ).join('');
+
+      card.innerHTML = `
+        <div class="result-name">${escHtml(anime.name)}</div>
+        <div class="lang-badges">${badges}</div>
+      `;
+      area.appendChild(card);
+    });
+  } catch(e) {
+    area.innerHTML = `<div class="empty">error: ${escHtml(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Search';
+  }
+}
+
+// ─── Anime selection ──────────────────────────────────────────────────────────
+async function selectAnime(anime, cardEl) {
+  document.querySelectorAll('.result-card').forEach(c => c.classList.remove('selected'));
+  cardEl.classList.add('selected');
+
+  selectedAnime = anime;
+  selectedEps.clear();
+  allEpisodes = [];
+  updateQueueBtn();
+
+  document.getElementById('placeholder-section').style.display = 'none';
+  document.getElementById('ep-section').style.display = '';
+  document.getElementById('ep-title').textContent = anime.name;
+
+  // Set lang toggle visibility
+  const hasSub = anime.languages.includes('sub');
+  const hasDub = anime.languages.includes('dub');
+  document.getElementById('lang-sub').disabled = !hasSub;
+  document.getElementById('lang-dub').disabled = !hasDub;
+  setLang(hasSub ? 'sub' : 'dub');
+}
+
+async function setLang(lang) {
+  currentLang = lang;
+  document.getElementById('lang-sub').classList.toggle('active', lang === 'sub');
+  document.getElementById('lang-dub').classList.toggle('active', lang === 'dub');
+
+  selectedEps.clear();
+  allEpisodes = [];
+  document.getElementById('ep-grid').innerHTML = '';
+  updateQueueBtn();
+
+  const loading = document.getElementById('ep-loading');
+  loading.style.display = '';
+
+  try {
+    const res = await fetch(
+      `/api/episodes?anime_id=${encodeURIComponent(selectedAnime.id)}&lang=${lang}`
+    );
+    if (!res.ok) throw new Error(await res.text());
+    allEpisodes = await res.json(); // [{number}]
+    renderEpisodes();
+  } catch(e) {
+    document.getElementById('ep-grid').innerHTML =
+      `<div style="color:var(--red);font-family:var(--mono);font-size:0.7rem">${escHtml(e.message)}</div>`;
+  } finally {
+    loading.style.display = 'none';
+  }
+}
+
+function renderEpisodes() {
+  const grid = document.getElementById('ep-grid');
+  grid.innerHTML = '';
+  allEpisodes.forEach(ep => {
+    const btn = document.createElement('button');
+    btn.className = 'ep-btn' + (selectedEps.has(ep.number) ? ' selected' : '');
+    btn.textContent = ep.number % 1 === 0 ? ep.number : ep.number.toFixed(1);
+    btn.dataset.num = ep.number;
+    btn.onclick = () => toggleEp(ep.number, btn);
+    grid.appendChild(btn);
+  });
+  updateQueueBtn();
+}
+
+function toggleEp(num, btn) {
+  if (selectedEps.has(num)) {
+    selectedEps.delete(num);
+    btn.classList.remove('selected');
+  } else {
+    selectedEps.add(num);
+    btn.classList.add('selected');
+  }
+  updateQueueBtn();
+}
+
+function selectAll() {
+  allEpisodes.forEach(ep => selectedEps.add(ep.number));
+  renderEpisodes();
+}
+
+function selectNone() {
+  selectedEps.clear();
+  renderEpisodes();
+}
+
+function selectRange() {
+  const input = prompt('Enter range, e.g. 1-12 or 5,6,7:');
+  if (!input) return;
+  const nums = new Set();
+  input.split(',').forEach(part => {
+    const m = part.trim().match(/^(\d+\.?\d*)-(\d+\.?\d*)$/);
+    if (m) {
+      const from = parseFloat(m[1]), to = parseFloat(m[2]);
+      allEpisodes.filter(e => e.number >= from && e.number <= to).forEach(e => nums.add(e.number));
+    } else {
+      const n = parseFloat(part.trim());
+      if (!isNaN(n)) nums.add(n);
+    }
+  });
+  nums.forEach(n => selectedEps.add(n));
+  renderEpisodes();
+}
+
+function updateQueueBtn() {
+  const btn = document.getElementById('queue-btn');
+  const count = selectedEps.size;
+  btn.disabled = count === 0;
+  document.getElementById('ep-count').textContent =
+    count > 0 ? `${count} episode${count > 1 ? 's' : ''} selected` : '';
+}
+
+// ─── Queue download ───────────────────────────────────────────────────────────
+async function queueSelected() {
+  if (!selectedAnime || !selectedEps.size) return;
+
+  const btn = document.getElementById('queue-btn');
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/queue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        anime_id: selectedAnime.id,
+        anime_name: selectedAnime.name,
+        episodes: [...selectedEps].sort((a,b) => a-b),
+        lang: currentLang
+      })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    toast(`Queued ${data.queued.length} episode(s)`);
+    selectedEps.clear();
+    renderEpisodes();
+  } catch(e) {
+    toast(`Error: ${e.message}`, true);
+  } finally {
+    updateQueueBtn();
+  }
+}
+
+// ─── Jobs list ────────────────────────────────────────────────────────────────
+async function loadJobs() {
+  const area = document.getElementById('jobs-area');
+  try {
+    const res = await fetch('/api/jobs');
+    const jobs = await res.json();
+
+    if (!jobs.length) {
+      area.innerHTML = '<div class="empty">no jobs yet</div>';
+      return;
+    }
+
+    // Rebuild DOM
+    area.innerHTML = '';
+    jobs.forEach(job => {
+      area.appendChild(buildJobCard(job));
+      // Subscribe to live updates for active jobs
+      if (job.status === 'queued' || job.status === 'downloading') {
+        subscribeJob(job.id);
+      }
+    });
+  } catch(e) {
+    area.innerHTML = `<div class="empty">failed to load jobs</div>`;
+  }
+}
+
+function buildJobCard(job) {
+  const card = document.createElement('div');
+  card.className = 'job-card';
+  card.id = `job-${job.id}`;
+  card.innerHTML = jobCardHTML(job);
+  return card;
+}
+
+function jobCardHTML(job) {
+  const pct = job.progress || 0;
+  const barClass = job.status === 'done' ? 'done' : job.status === 'error' ? 'error' : '';
+  const errorRow = job.error
+    ? `<div class="job-error">⚠ ${escHtml(job.error)}</div>`
+    : '';
+  return `
+    <div class="job-header">
+      <div>
+        <div class="job-name">${escHtml(job.anime_name)}</div>
+        <div class="job-meta">EP ${job.episode_num} · ${job.lang.toUpperCase()}</div>
+      </div>
+      <span class="status-pill ${job.status}">${job.status}</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-bar ${barClass}" style="width:${pct}%"></div>
+    </div>
+    ${errorRow}
+  `;
+}
+
+function updateJobCard(jobId, data) {
+  const card = document.getElementById(`job-${jobId}`);
+  if (!card) return;
+
+  // Update status pill
+  const pill = card.querySelector('.status-pill');
+  if (pill) { pill.className = `status-pill ${data.status}`; pill.textContent = data.status; }
+
+  // Update bar
+  const bar = card.querySelector('.progress-bar');
+  if (bar) {
+    bar.style.width = `${data.progress || 0}%`;
+    bar.className = 'progress-bar' +
+      (data.status === 'done' ? ' done' : data.status === 'error' ? ' error' : '');
+  }
+
+  // Update error
+  let errEl = card.querySelector('.job-error');
+  if (data.error) {
+    if (!errEl) {
+      errEl = document.createElement('div');
+      errEl.className = 'job-error';
+      card.appendChild(errEl);
+    }
+    errEl.textContent = `⚠ ${data.error}`;
+  }
+}
+
+function subscribeJob(jobId) {
+  if (jobStreams[jobId]) return;
+  const es = new EventSource(`/api/progress/${jobId}`);
+  jobStreams[jobId] = es;
+
+  es.onmessage = e => {
+    const data = JSON.parse(e.data);
+    updateJobCard(jobId, data);
+    if (data.status === 'done' || data.status === 'error') {
+      es.close();
+      delete jobStreams[jobId];
+    }
+  };
+
+  es.onerror = () => { es.close(); delete jobStreams[jobId]; };
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+let toastTimer;
+function toast(msg, isErr = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.borderColor = isErr ? 'var(--red)' : 'var(--accent)';
+  el.style.color = isErr ? 'var(--red)' : 'var(--accent)';
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
