@@ -7,7 +7,7 @@ services:
     container_name: anipy-web
     restart: unless-stopped
     ports:
-      - "${PORT:-8080}:8080"
+      - "${PORT:-8088}:8088"
     volumes:
       - ${DOWNLOAD_DIR}:/downloads
       - anipy-data:/data
