@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir \
 
 COPY app/ ./app/
 
-RUN mkdir -p /downloads /data
+RUN mkdir -p /downloads/data
 
 EXPOSE 8080
 

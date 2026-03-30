@@ -9,7 +9,7 @@ services:
     ports:
       - "${PORT:-8088}:8088"
     volumes:
-      - ${DOWNLOAD_DIR}:/downloads
+      - ${DOWNLOAD_DIR:?DOWNLOAD_DIR must be set in stack environment}:/downloads
       - anipy-data:/data
     environment:
       - ANIPY_USER=${ANIPY_USER}
